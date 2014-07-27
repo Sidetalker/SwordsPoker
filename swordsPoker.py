@@ -1,6 +1,7 @@
 import console, sys
 
 weaponData = 'weapons.txt'
+shieldData = 'shields.txt'
 saveData = 'save.txt'
 
 # ANSI options for multiplatform colored terminal text
@@ -229,10 +230,27 @@ class Weapon:
 		self.effects = []
 
 	def addAttacks(self, attackString):
-		self.attacks = [i for i in attackString.split()]
+		self.attacks = [int(i) for i in attackString.split()]
 
 	def addEffects(self, effectString):
-		self.effects = [i for i in effectString.split()]
+		self.effects = [int(i) for i in effectString.split()]
+
+	def getDetails(self):
+		print TerminalColor.BLUE + name +TerminalColor.END
+		
+		for i in range(10):
+			if i == 0:
+				tempString = str(attacks[i])
+
+				if effects[i] != -1:
+					tempString += ' (' + WeaponEffect.getString(self.effects[i])
+
+# Stores all information for a single shield
+class Shield:
+	def __init__(self, shieldName):
+		self.name = shieldName
+		self.defense = -1
+		self.resistance = -1
 
 	def getDetails(self):
 		print TerminalColor.BLUE + name +TerminalColor.END
@@ -248,6 +266,8 @@ class Weapon:
 class Player:
 	def __init__(self):
 		self.availableWeapons = []
+		self.availableShields = []
+		self.currentShield = -1
 		self.currentWeapon = -1
 		self.health = -1
 		self.monsterHealth = -1
@@ -261,10 +281,11 @@ class Player:
 		return self.board.getBoardRaw()
 
 	def printStats(self):
-		print getColor('Your Health:\t', TerminalColor.GREEN) + str(self.health)
-		print getColor('Health Refills:\t', TerminalColor.GREEN) + str(self.healthRefills)
-		print getColor('Monster Health:\t', TerminalColor.RED) + str(self.monsterHealth)
+		print getColor('Your Health:\t', TerminalColor.NONE) + str(self.health)
+		print getColor('Health Refills:\t', TerminalColor.NONE) + str(self.healthRefills)
+		print getColor('Monster Health:\t', TerminalColor.NONE) + str(self.monsterHealth)
 		print 'Current Weapon:\t' + self.availableWeapons[self.currentWeapon].name
+		print 'Current Shield:\t' + self.availableShields[self.currentShield].name + '\n'
 
 		self.printBoard()
 
@@ -301,9 +322,38 @@ def parseWeapons():
 
 	return weaponArray
 
+def parseShields():
+	shieldArray = []
+
+	tempShield = Shield('None')
+	tempShield.defense = 0
+	tempShield.resistance = -1
+
+	shieldArray.append(tempShield)
+
+	parseFlag = 0
+
+	# Build each Shield object and add it to the array
+	with open(shieldData, 'r') as data:
+		for line in data:
+			if line.strip():
+				if parseFlag == 0:
+					tempShield = Shield(line.strip())
+					parseFlag += 1
+				elif parseFlag == 1:
+					info = line.strip().split()
+					tempShield.defense = int(info[0])
+					tempShield.resistance = int(info[1])
+					shieldArray.append(tempShield)
+					parseFlag = 0
+
+	return shieldArray
+
 # Parse the weapon data file
 def parseSave():
 	saveArray = []
+	ranks = []
+	suits = []
 	tempPlayer = Player()
 	parseFlag = 0
 
@@ -315,6 +365,9 @@ def parseSave():
 
 	# Apply player attributes
 	for i in range(len(saveArray)):
+		curRanks = []
+		curSuits = []
+
 		for x in range(len(saveArray[i])):
 			if i == 0:
 				if saveArray[0][x] == -1:
@@ -328,6 +381,19 @@ def parseSave():
 					tempPlayer.healthRefills = saveArray[0][x]
 				elif x == 3:
 					tempPlayer.monsterHealth = saveArray[0][x]
+				elif x == 4:
+					tempPlayer.currentShield = saveArray[0][x]
+			else:
+				if (x % 2) == 0:
+					curRanks.append(saveArray[i][x])
+				else:
+					curSuits.append(saveArray[i][x])
+
+		if i > 0:
+			ranks.append(curRanks)
+			suits.append(curSuits)
+
+	tempPlayer.board = Board(ranks, suits)
 
 	return tempPlayer
 
@@ -355,7 +421,7 @@ def escapeStrings():
 # TODO Error handling
 def save(gameMaster):
 	f = open(saveData,'w')
-	f.write(str(gameMaster.currentWeapon) + ' ' + str(gameMaster.health) + ' ' + str(gameMaster.healthRefills) + ' ' + str(gameMaster.monsterHealth) + '\n')
+	f.write(str(gameMaster.currentWeapon) + ' ' + str(gameMaster.health) + ' ' + str(gameMaster.healthRefills) + ' ' + str(gameMaster.monsterHealth) + ' ' + str(gameMaster.currentShield) + '\n')
 	f.write(gameMaster.getBoardRaw())
 	f.close()
 
@@ -443,6 +509,7 @@ if __name__ == '__main__':
 	# Obtain weapons from text file
 	gameMaster = parseSave()
 	gameMaster.availableWeapons = parseWeapons()
+	gameMaster.availableShields = parseShields()
 
 	# Print a happy little welcome message
 	print centerString('Welcome to the Swords Poker Helper!', TerminalColor.BLUE)
@@ -466,6 +533,10 @@ if __name__ == '__main__':
 
 	else:
 		print centerString('Save Data Loaded\n', TerminalColor.GREEN)
+
+		# Print the current game information
+		print getColor('Game Statistics', TerminalColor.BLUE)
+		gameMaster.printStats()
 		# print '- Q K 10 -'
 		# print '- D D S -'
 
